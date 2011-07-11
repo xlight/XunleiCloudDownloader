@@ -42,7 +42,7 @@ if(!$tasklist) {echo "get CloudList Fail!\n" ; die(2);}
 foreach($tasklist as $task){
 	$filename = $task['taskname'];
 	$url = $task['lixian_url'];
-	$cmd = "wget  -c --load-cookies= ".dirname(__FILE__).'/cookie.txt '. " '{$url}' ". " -O '{$filename}' ";
+	$cmd = "wget  -c --load-cookies=".dirname(__FILE__).'/cookie.txt '. " '{$url}' ". " -O '{$filename}' ";
 	echo $cmd ,"\n";
 }
 
