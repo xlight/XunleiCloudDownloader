@@ -3,7 +3,10 @@ error_reporting(E_ALL ^ E_NOTICE);
 $u = '88280500';                                                                                                                                                                        
 $p = 'cdawrtc516';                                                                                                                                                                      
 
+$downloadPath = dirname(__FILE__);
 
+
+/* start */
 echo "getVerifyCode ... ";                                                                                                                                                                
 $verifycode = getVerifyCode($u);
 if($verifycode) echo $verifycode," OK\n";
@@ -42,11 +45,20 @@ if(!$tasklist) {echo "get CloudList Fail!\n" ; die(2);}
 foreach($tasklist as $task){
 	$filename = $task['taskname'];
 	$url = $task['lixian_url'];
-	$cmd = "wget  -c --load-cookies=".dirname(__FILE__).'/cookie.txt '. " '{$url}' ". " -O '{$filename}' ";
+	$cmd = "wget  -c --load-cookies=".dirname(__FILE__).'/cookie.txt '. " '{$url}' ". " -O '{$downloadPath}/{$filename}' ";
 	echo "download : ".$filename."\n";
 	system($cmd);
 	
 }
+
+echo "generate index.htm ...";
+$Content = '';
+$files = glob($downloadPath.'/*');
+foreach($files as $file){
+$Content .= "<a href='".basename($file).'>'.basename($file).'</a>';
+}
+file_put_contents($downloadPath.'/index.htm',$Content);
+echo "OK";
 
 echo "Done\n";
 //==============
