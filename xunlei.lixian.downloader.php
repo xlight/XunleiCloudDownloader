@@ -4,9 +4,70 @@ $u = '88280500';
 $p = 'cdawrtc516';                                                                                                                                                                      
 
 $downloadPath = dirname(__FILE__);
+$downloadPath = '/opt/incoming';
 
+$wgetCmd = '/opt/bin/wget';
 
 /* start */
+
+$tasklist = getCloudList();
+
+if($tasklist['result'] != 0){
+	loginprogress($u,$p);
+	$tasklist = getCloudList();
+}
+$tasklist = $tasklist['list']['records'];
+
+if(!$tasklist) {echo "get CloudList Fail!\n" ; die(2);}
+
+foreach($tasklist as $task){
+
+        $filename = $task['taskname'];                                                                                                                                             
+        $url = $task['lixian_url'];          
+                                                                                                                                              
+        if(file_exists("{$downloadPath}/{$filename}") ){
+         	echo "already exists, skip : {$filename}  \n";
+         	continue;  
+        }                                                                                                                
+        if(!file_exists("{$downloadPath}/{$filename}.download") || filesize("{$downloadPath}/{$filename}.download") != $task['dst_file_size']){                                                                                            
+              echo "download : ".$filename."\n";   
+              $cmd = "{$wgetCmd}  -c --load-cookies=".dirname(__FILE__).'/cookie.txt '
+                 ." '{$url}' ". " -O '{$downloadPath}/{$filename}.download' ";                          
+                                                                                                                                
+              system($cmd);                                                                                                                                                      
+        }                                                                                                                                                                          
+        if(filesize("{$downloadPath}/{$filename}.download") == $task['dst_file_size']){    
+        	echo "done : {$filename} \n";                                                                                        
+              rename("{$downloadPath}/{$filename}.download", "{$downloadPath}/{$filename}");                                                                                     
+        }                   
+}
+
+/*
+echo "generate index.htm ...";
+$Content = '';
+$files = glob($downloadPath.'/*');
+foreach($files as $file){
+$Content .= "<a href='".basename($file).'>'.basename($file).'</a>';
+}
+file_put_contents($downloadPath.'/index.htm',$Content);
+echo "OK\n";
+//*/
+
+echo "Done\n";
+//==============
+function getCloudList(){
+echo 'getCloudList ... ';
+$datetime = date('D M d Y H:i:s \G\M\TO (T)');
+$url = 'http://dynamic.cloud.vip.xunlei.com/interface/get_cloud_list?t='.urlencode($datetime).'&p=1';
+$mainContents = request::get($url);
+echo "OK\n";
+
+return $tasklist = json_decode($mainContents,1); unset($mainContents);
+
+}
+function loginprogress($u,$p){
+
+
 echo "getVerifyCode ... ";                                                                                                                                                                
 $verifycode = getVerifyCode($u);
 if($verifycode) echo $verifycode," OK\n";
@@ -31,38 +92,8 @@ $mainContents = request::get($url);
 if($mainContents)echo "OK\n";
 else echo "Fail\n";
 
-echo 'getCloudList ... ';
-$datetime = date('D M d Y H:i:s \G\M\TO (T)');
-$url = 'http://dynamic.cloud.vip.xunlei.com/interface/get_cloud_list?t='.urlencode($datetime).'&p=1';
-$mainContents = request::get($url);
-echo "OK\n";
 
-$tasklist = json_decode($mainContents,1); unset($mainContents);
-$tasklist = $tasklist['list']['records'];
-
-if(!$tasklist) {echo "get CloudList Fail!\n" ; die(2);}
-
-foreach($tasklist as $task){
-	$filename = $task['taskname'];
-	$url = $task['lixian_url'];
-	$cmd = "wget  -c --load-cookies=".dirname(__FILE__).'/cookie.txt '. " '{$url}' ". " -O '{$downloadPath}/{$filename}' ";
-	echo "download : ".$filename."\n";
-	system($cmd);
-	
 }
-
-echo "generate index.htm ...";
-$Content = '';
-$files = glob($downloadPath.'/*');
-foreach($files as $file){
-$Content .= "<a href='".basename($file).'>'.basename($file).'</a>';
-}
-file_put_contents($downloadPath.'/index.htm',$Content);
-echo "OK";
-
-echo "Done\n";
-//==============
-
 
 function getLoginParam($u,$p,$verifycode){
 
