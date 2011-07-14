@@ -1,3 +1,4 @@
+#!/opt/bin/php
 <?php       
 error_reporting(E_ALL ^ E_NOTICE);                                                                                                                                                                        
 $u = '88280500';                                                                                                                                                                        
@@ -9,7 +10,11 @@ $downloadPath = '/opt/incoming';
 $wgetCmd = '/opt/bin/wget';
 
 /* start */
-
+$lock = new runlock();
+if(!$lock->getlock()){
+echo "runlock! \n";
+ exit (10);
+}
 $tasklist = getCloudList();
 
 if($tasklist['result'] != 0){
@@ -58,7 +63,8 @@ $Content .= "<a href='".basename($file).'>'.basename($file).'</a>';
 file_put_contents($downloadPath.'/index.htm',$Content);
 echo "OK\n";
 //*/
-
+$lock->unlock();
+unset($lock);
 echo "Done\n";
 //==============
 function getCloudList(){
@@ -146,7 +152,38 @@ return $error[$code];
       
 
 
+class runlock{
+	static $lockfile;
+	static $fp;
+	function __construct(){
+		self::$lockfile = '/tmp/xunlei.lock';
+		self::$fp = fopen(self::$lockfile,'w+');
+	}
+	function getLock(){
+		 if (self::$fp == false) {
+                                return false;
+                        }
+                        return flock ( self::$fp, LOCK_EX| LOCK_NB );
+	}
+	
+	function unlock(){
+	  if (self::$fp != false) {
+                                flock ( self::$fp, LOCK_UN );
+                                clearstatcache ();
+                        }
 
+}
+
+function __destruct(){
+	if(self::$fp) {
+	 flock ( self::$fp, LOCK_UN );
+fclose(self::$fp);
+touch(self::$lockfile);
+//unlink(self::$lockfile);
+}	
+	}
+
+}
 
 
 
