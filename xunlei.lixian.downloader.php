@@ -28,8 +28,14 @@ foreach($tasklist as $task){
         if(file_exists("{$downloadPath}/{$filename}") ){
          	echo "already exists, skip : {$filename}  \n";
          	continue;  
-        }                                                                                                                
-        if(!file_exists("{$downloadPath}/{$filename}.download") || filesize("{$downloadPath}/{$filename}.download") != $task['dst_file_size']){                                                                                            
+        }
+        
+        $downloadedSize = file_exists("{$downloadPath}/{$filename}.download") ? filesize("{$downloadPath}/{$filename}.download") : 0;
+        if(disk_free_space($downloadPath) < ($task['dst_file_size'] - $downloadedSize ) ){
+        	echo "not enough space: {$filename}    filesize: {$task['dst_file_size']} need: ".($task['dst_file_size'] - $downloadedSize -disk_free_space($downloadPath) ) ."\n";
+        	continue;
+        }                                                                                                              
+        if($downloadedSize != $task['dst_file_size']){                                                                                            
               echo "download : ".$filename."\n";   
               $cmd = "{$wgetCmd}  -c --load-cookies=".dirname(__FILE__).'/cookie.txt '
                  ." '{$url}' ". " -O '{$downloadPath}/{$filename}.download' ";                          
@@ -114,7 +120,7 @@ function getVerifyCode($u){
 	$url = 'http://login.xunlei.com/check?u='.$u;
 	request::get($url);
 	
-	$cookies = _curl_parse_cookiefile(request::$cookiefile);
+	$cookies = request::get_cookie();
 
 	$a = explode(':',$cookies['check_result']);
 
@@ -127,7 +133,7 @@ function login($parameters){
 	$url = 'http://login.xunlei.com/sec2login/';
 	request::post($url,$parameters);
 	
-	$cookies = _curl_parse_cookiefile(request::$cookiefile);
+	$cookies = request::get_cookie();
 	//var_dump($cookies);die;
 	return trim($cookies['blogresult']);
 
@@ -140,21 +146,9 @@ return $error[$code];
       
 
 
-function _curl_parse_cookiefile($file) { 
-	$aCookies = array(); 
-	$aLines = file($file); 
-	if(!$aLines) return false;
-	foreach($aLines as $line){ 
 
-	  if('#'==$line{0}) 
-		continue; 
-	$arr = explode("\t", $line); 
-	if(isset($arr[5]) && isset($arr[6])) 
-		$aCookies[$arr[5]] = $arr[6]; 
-	} 
-	
-	return $aCookies; 
-} 
+
+
 
 class request{
 	static $cookiefile;
@@ -184,5 +178,22 @@ class request{
 		$cmd = "curl ".self::$curlOptions." {$postData} '{$url}' ";
 		system($cmd);
 		return file_get_contents(dirname(__FILE__).'/tmp');
-	}    
+	}
+	
+	function get_cookie() { 
+		$file = self::$cookiefile;
+		$aCookies = array(); 
+		$aLines = file($file); 
+		if(!$aLines) return false;
+		foreach($aLines as $line){ 
+
+	  		if('#'==$line{0}) 
+				continue; 
+		$arr = explode("\t", $line); 
+		if(isset($arr[5]) && isset($arr[6])) 
+			$aCookies[$arr[5]] = trim($arr[6]); 
+		} 
+	
+		return $aCookies; 
+	}     
 }    
