@@ -163,7 +163,11 @@ class runlock{
 		 if (self::$fp == false) {
                                 return false;
                         }
-                        return flock ( self::$fp, LOCK_EX| LOCK_NB );
+                        if(flock ( self::$fp, LOCK_EX| LOCK_NB )){
+                        touch(self::$lockfile); 
+                        return true;
+                        }
+                        return false;
 	}
 	
 	function unlock(){
@@ -178,7 +182,6 @@ function __destruct(){
 	if(self::$fp) {
 	 flock ( self::$fp, LOCK_UN );
 fclose(self::$fp);
-touch(self::$lockfile);
 //unlink(self::$lockfile);
 }	
 	}
@@ -193,7 +196,7 @@ class request{
 	function init(){
 		self::$cookiefile = dirname(__FILE__).'/cookie.txt';
 
-		self::$curlOptions = " -s -L -b ".self::$cookiefile." -c ".self::$cookiefile . " ";
+		self::$curlOptions = "  --compressed -s -L -b ".self::$cookiefile." -c ".self::$cookiefile . " ";
 		self::$curlOptions .= ' -o '.dirname(__FILE__).'/tmp';
 		//self::$curlOptions .= ' -D/dev/stdout ';		
 
