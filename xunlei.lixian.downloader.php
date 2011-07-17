@@ -69,14 +69,38 @@ echo "Done\n";
 //==============
 function getCloudList(){
 echo 'getCloudList ... ';
-$datetime = date('D M d Y H:i:s \G\M\TO (T)');
-$url = 'http://dynamic.cloud.vip.xunlei.com/interface/get_cloud_list?t='.urlencode($datetime).'&p=1';
-$mainContents = request::get($url);
+$tasklist = array();
+
+$page = 1;
+do{
+ $datetime = date('D M d Y H:i:s \G\M\TO (T)');
+ $url = 'http://dynamic.cloud.vip.xunlei.com/interface/get_cloud_list?t='.urlencode($datetime).'&p='.$page;
+ $Contents = request::get($url);
+
+ $Contents = json_decode($Contents,1);
+ if(0 != $Contents['result']) echo "error  ";  
+ 
+ $max_page = $Contents['max_page'];
+ //$total_num = $Contents["total_num"];
+ $tasklist = array_merge($tasklist , $Contents['list']['records'] );
+ $page++;
+}while($page <= $max_page);
+
+usort($tasklist,'cmp');
+$Contents['list']['records'] = $tasklist;  
 echo "OK\n";
 
-return $tasklist = json_decode($mainContents,1); unset($mainContents);
+return $Contents ;
 
 }
+function cmp($a, $b)
+{
+	if ($a['taskname'] == $b['taskname']) {
+		return 0;
+	}
+	return ($a['taskname'] < $b['taskname']) ? -1 : 1;
+}
+
 function loginprogress($u,$p){
 
 
