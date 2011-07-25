@@ -4,15 +4,14 @@ error_reporting(E_ALL ^ E_NOTICE);
 $u = '88280500';                                                                                                                                                                        
 $p = 'cdawrtc516';                                                                                                                                                                      
 
-$downloadPath = dirname(__FILE__);
-$downloadPath = '/opt/incoming';
-
+//$downloadPath = dirname(__FILE__);
+//$downloadPath = '/opt/incoming';
+$downloadPath = '/mnt';
 $wgetCmd = '/opt/bin/wget';
 
 /* start */
-$lock = new runlock();
-if(!$lock->getlock()){
-echo "runlock! \n";
+if(!runlock()){
+echo "[".date('Y-m-d H:i:s')."]runlock! \n";
  exit (10);
 }
 $tasklist = getCloudList();
@@ -23,7 +22,9 @@ if($tasklist['result'] != 0){
 }
 $tasklist = $tasklist['list']['records'];
 
-if(!$tasklist) {echo "get CloudList Fail!\n" ; die(2);}
+if(!$tasklist) {echo "[".date('Y-m-d H:i:s')."]get CloudList Fail!\n" ; die(2);}
+
+touchNclean($tasklist,$downloadPath);
 
 foreach($tasklist as $task){
 
@@ -31,26 +32,29 @@ foreach($tasklist as $task){
         $url = $task['lixian_url'];          
                                                                                                                                               
         if(file_exists("{$downloadPath}/{$filename}") ){
-         	echo "already exists, skip : {$filename}  \n";
+         	echo "[".date('Y-m-d H:i:s')."]already exists, skip : {$filename}  \n";
          	continue;  
         }
         
         $downloadedSize = file_exists("{$downloadPath}/{$filename}.download") ? filesize("{$downloadPath}/{$filename}.download") : 0;
         if(disk_free_space($downloadPath) < ($task['dst_file_size'] - $downloadedSize ) ){
-        	echo "not enough space: {$filename}    filesize: {$task['dst_file_size']} need: ".($task['dst_file_size'] - $downloadedSize -disk_free_space($downloadPath) ) ."\n";
+        	echo "[".date('Y-m-d H:i:s')."]not enough space: {$filename}    filesize: {$task['dst_file_size']} need: ".($task['dst_file_size'] - $downloadedSize -disk_free_space($downloadPath) ) ."\n";
         	continue;
         }                                                                                                              
         if($downloadedSize != $task['dst_file_size']){                                                                                            
-              echo "download : ".$filename."\n";   
+              echo "[".date('Y-m-d H:i:s')."]download : ".$filename."\n";   
               $cmd = "{$wgetCmd}  -c --load-cookies=".dirname(__FILE__).'/cookie.txt '
-                 ." '{$url}' ". " -O '{$downloadPath}/{$filename}.download' ";                          
-                                                                                                                                
-              system($cmd);                                                                                                                                                      
-        }                                                                                                                                                                          
+                 ." '{$url}' ". " -O '{$downloadPath}/{$filename}.download' ";
+              $retVal = '';
+              system($cmd,$retVal);
+        }
+        clearstatcache();
         if(filesize("{$downloadPath}/{$filename}.download") == $task['dst_file_size']){    
-        	echo "done : {$filename} \n";                                                                                        
+        	echo "[".date('Y-m-d H:i:s')."]done{$retVal} : {$filename} \n";                                                                                        
               rename("{$downloadPath}/{$filename}.download", "{$downloadPath}/{$filename}");                                                                                     
-        }                   
+        }else{
+        	echo "[".date('Y-m-d H:i:s')."]NotDone{$retVal} : {$filename} Complete:".filesize("{$downloadPath}/{$filename}.download")."/{$task['dst_file_size']}\n";
+        }
 }
 
 /*
@@ -63,12 +67,35 @@ $Content .= "<a href='".basename($file).'>'.basename($file).'</a>';
 file_put_contents($downloadPath.'/index.htm',$Content);
 echo "OK\n";
 //*/
-$lock->unlock();
 unset($lock);
-echo "Done\n";
+echo "[".date('Y-m-d H:i:s')."]Done\n";
+
+
 //==============
+function touchNclean($tasklist,$downloadPath){
+
+$downloadingList = glob($downloadPath.'/*.download');
+foreach($downloadingList as &$i) $i = basename($i,'.download');
+$downloadingList = array_flip($downloadingList);
+
+foreach($tasklist as $task){
+ $filename = $task['taskname'];
+ unset($downloadingList[$filename]);
+ if(!file_exists($downloadPath.'/'.$filename))
+   touch($downloadPath.'/'.$filename.'.download');
+ 
+
+}
+
+foreach($downloadList as $i){
+ rename($downloadPath.'/'.$i , $downloadPath.'/'.$i.'.crop');
+echo "[".date('Y-m-d H:i:s')."]rename crop file: {$i}\n";
+}
+
+}
+
 function getCloudList(){
-echo 'getCloudList ... ';
+echo '['.date('Y-m-d H:i:s').']getCloudList ... ';
 $tasklist = array();
 
 $page = 1;
@@ -104,7 +131,7 @@ function cmp($a, $b)
 function loginprogress($u,$p){
 
 
-echo "getVerifyCode ... ";                                                                                                                                                                
+echo "[".date('Y-m-d H:i:s')."]getVerifyCode ... ";                                                                                                                                                                
 $verifycode = getVerifyCode($u);
 if($verifycode) echo $verifycode," OK\n";
 else echo "Fail\n";
@@ -114,7 +141,7 @@ $parameters = getLoginParam($u,$p,$verifycode);
 //var_dump($parameters);
 
 
-echo "Login ... ";
+echo "[".date('Y-m-d H:i:s')."]Login ... ";
 if(0 != ($errCode = login($parameters) ) ) {
 	echo "Fail: ".getErrMsg($errCode)."\n";
 	exit(1);
@@ -122,7 +149,7 @@ if(0 != ($errCode = login($parameters) ) ) {
 echo "OK\n";
 
 
-echo "getIn ... ";
+echo "[".date('Y-m-d H:i:s')."]getIn ... ";
 $url = 'http://dynamic.lixian.vip.xunlei.com/login?cachetime='.time().rand(100,999).'&cachetime='.time().rand(100,999).'&from=0';
 $mainContents = request::get($url);
 if($mainContents)echo "OK\n";
@@ -176,40 +203,14 @@ return $error[$code];
       
 
 
-class runlock{
-	static $lockfile;
-	static $fp;
-	function __construct(){
-		self::$lockfile = '/tmp/xunlei.lock';
-		self::$fp = fopen(self::$lockfile,'w+');
+function runLock(){
+	$cmd = 'pidof '.basename(__FILE__);
+	$pids = system($cmd);
+	//var_dump($pids);
+	if(strval(getmypid()) == $pids){
+		return true;
 	}
-	function getLock(){
-		 if (self::$fp == false) {
-                                return false;
-                        }
-                        if(flock ( self::$fp, LOCK_EX| LOCK_NB )){
-                        touch(self::$lockfile); 
-                        return true;
-                        }
-                        return false;
-	}
-	
-	function unlock(){
-	  if (self::$fp != false) {
-                                flock ( self::$fp, LOCK_UN );
-                                clearstatcache ();
-                        }
-
-}
-
-function __destruct(){
-	if(self::$fp) {
-	 flock ( self::$fp, LOCK_UN );
-fclose(self::$fp);
-//unlink(self::$lockfile);
-}	
-	}
-
+	return false;
 }
 
 
